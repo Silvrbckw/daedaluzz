@@ -15,9 +15,9 @@ fuzzers = [
 
 
 def aggregate_fuzzer_data(fuzzers):
-    discovery_time = dict()
-    total_bugs = dict()
-    total_duration = dict()
+    discovery_time = {}
+    total_bugs = {}
+    total_duration = {}
     for fuzzer in fuzzers:
         file_name = f"{fuzzer}-results.json"
         with open(file_name) as file:
@@ -31,29 +31,29 @@ def aggregate_fuzzer_data(fuzzers):
                 violations = res["violations"]
                 # We aggregate the bug discovery time.
                 for bug_id, bug_discovery_time in violations.items():
-                    if not (tool in discovery_time):
-                        discovery_time[tool] = dict()
+                    if tool not in discovery_time:
+                        discovery_time[tool] = {}
                     per_tool_disc_time = discovery_time[tool]
                     glob_bug_id = f"{program}@{bug_id}"
-                    if not glob_bug_id in per_tool_disc_time:
+                    if glob_bug_id not in per_tool_disc_time:
                         per_tool_disc_time[glob_bug_id] = []
                     per_bug_disc_time = per_tool_disc_time[glob_bug_id]
                     per_bug_disc_time.append(bug_discovery_time)
                 # We aggregate the number of total bugs.
                 num_bugs = len(violations)
-                if not (tool in total_bugs):
-                    total_bugs[tool] = dict()
+                if tool not in total_bugs:
+                    total_bugs[tool] = {}
                 bugs_per_tool = total_bugs[tool]
                 seed = res["random-seed"]
-                if not (seed in bugs_per_tool):
+                if seed not in bugs_per_tool:
                     bugs_per_tool[seed] = 0
                 bugs_per_tool[seed] += num_bugs
                 # We aggregate the campaign duration.
                 duration = res["duration"]
-                if not (tool in total_duration):
-                    total_duration[tool] = dict()
+                if tool not in total_duration:
+                    total_duration[tool] = {}
                 duration_per_tool = total_duration[tool]
-                if not (seed in duration_per_tool):
+                if seed not in duration_per_tool:
                     duration_per_tool[seed] = 0
                 duration_per_tool[seed] += duration
     return discovery_time, total_bugs, total_duration
@@ -118,13 +118,13 @@ create_bar_chart(total_bugs, time_limit)
 
 
 def num_bugs_at(time, fuzzer, fuzzer_results):
-    num_bugs_per_seed = dict()
+    num_bugs_per_seed = {}
     for res in fuzzer_results:
         tool = res["tool"]
         if not fuzzer.startswith(tool):
             continue
         seed = res["random-seed"]
-        if not (seed in num_bugs_per_seed):
+        if seed not in num_bugs_per_seed:
             num_bugs_per_seed[seed] = 0
         num_bugs = 0
         violations = res["violations"]
@@ -134,10 +134,7 @@ def num_bugs_at(time, fuzzer, fuzzer_results):
                 num_bugs += 1
         num_bugs_per_seed[seed] += num_bugs
     sorted_keys = sorted(num_bugs_per_seed.keys())
-    num_bugs_sorted = []
-    for k in sorted_keys:
-        num_bugs_sorted.append(num_bugs_per_seed[k])
-    return num_bugs_sorted
+    return [num_bugs_per_seed[k] for k in sorted_keys]
 
 
 def extract_plot_data(fuzzer, time_limit):
@@ -145,7 +142,7 @@ def extract_plot_data(fuzzer, time_limit):
     with open(file_name) as file:
         data = file.read()
         fuzzer_results = loads(data)
-        plot_data = dict()
+        plot_data = {}
         step = 10
         for t in range(0, time_limit + 1, step):
             num_bugs_sorted = num_bugs_at(t, fuzzer, fuzzer_results)
@@ -163,8 +160,10 @@ def create_line_plot(fuzzers, time_limit, first, second, x_scale="linear"):
     for fuzzer in fuzzers:
         fuzzer_data = extract_plot_data(fuzzer, time_limit)
         for t, vs in fuzzer_data.items():
-            for v in vs:
-                cov_data.append(dict({"fuzzer": fuzzer, "time": t, "violations": v}))
+            cov_data.extend(
+                dict({"fuzzer": fuzzer, "time": t, "violations": v})
+                for v in vs
+            )
     df = pd.DataFrame(cov_data)
     file_name = "coverage-over-time"
     df.to_csv(f"{file_name}.csv", encoding="utf-8")
@@ -186,7 +185,7 @@ def create_line_plot(fuzzers, time_limit, first, second, x_scale="linear"):
         first_data = extract_plot_data(first, time_limit)
         first_data_sorted = sorted(first_data.items())
         first_x_max = max(
-            [xi for xi, yi in first_data_sorted if np.median(yi) <= second_y_max]
+            xi for xi, yi in first_data_sorted if np.median(yi) <= second_y_max
         )
         print(
             f"{first} exceeds final number of bugs found by {second} ({second_y_max}) after only {first_x_max} secs!"
